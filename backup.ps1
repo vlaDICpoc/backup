@@ -1,75 +1,45 @@
-# Путь к 1сv8.exe
-$1cv8exe = "C:\Program Files (x86)\1cv8\8.3.26.1656\bin\1cv8.exe"
+﻿# Путь к ветке реестра, где хранятся параметры для работа скрипта.
+$registryBranch = "HKLM:\Software\Backup_1C"
 
-# Путь к папке хранения логов
-$logDirectoryPath = "C:\Users\User\Documents\PowerShell\logs"
-$logDirectoryExist = Test-Path $logDirectoryPath
+$secureCredentialPath = Get-ItemPropertyValue -Path $registryBranch -Name SecureCredentialPath
+$credential1c = Import-Clixml "$secureCredentialPath\1c.xml"
+# ./$credentialSFTP = Import-Clixml "$secureCredentialPath\sftp.xml" 
 
-$sftpSession = New-SFTPSession -ComputerName 192.168.0.103 -Credential (Get-Credential)
-
-if(!($logDirectoryExist)) {
-    $currentTime = Get-Date
-    Write-Output "$currentTime | Папка хранения логов не найдена!"
-}
-
-if (!(Test-Path -Path $1cv8exe)) {
-    $currentTime = Get-Date
-    $logMessage = "$currentTime | 1сv8.exe - не найден!"
-
-    Write-Output "$currentTime | 1сv8.exe - не найден!"
-
-    if ($logDirectoryExist) {
-        New-Item -Path $logDirectoryPath -Name "logs.txt" -Value $logMessage
-    }
-
+Write-Host "Проверка наличия прав администратора..."
+if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(`
+    [Security.Principal.WindowsBuiltInRole] "Administrator")) {
+    Start-Process Powershell -ArgumentList $PSCommandPath -Verb RunAs
     Exit
 }
+
+# Путь к 1сv8.exe
+$1cv8exe = Get-ItemPropertyValue -Path $registryBranch -Name 1cv8exe
+
 
 $baseSettings  = [PSCustomObject]@{
-    mode = "CONFIG"
-    user = "Администратор"
-    password = "061420"
-    basePath = "C:\Users\User\Documents\InfoBase\BGU"
-    backupPath = "C:\Users\User\Documents\PowerShell\backup"
+    user = $credential1c.UserName
+        password = [System.Net.NetworkCredential]::new(
+        "",
+        $credential1c.Password
+    ).Password
+    infoBase = Get-ItemPropertyValue -Path $registryBranch -Name InfoBase
+    tempBackupFolder = Get-ItemPropertyValue -Path $registryBranch -Name TempBackupFolder
 }
 
-$currentTime = Get-Date
-$process = Start-Process -FilePath $1cv8exe -ArgumentList @(
+$backupDate = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+Start-Process -FilePath $1cv8exe -ArgumentList @(
     "CONFIG",
-    "/F`"$($baseSettings.basePath)`"",
+    "/F`"$($baseSettings.infoBase)`"",
     "/N`"$($baseSettings.user)`"",
     "/P`"$($baseSettings.password)`"",
-    "/DumpIB`"$($baseSettings.backupPath)\$currentTime-backup.dt`"",
-    "/Out`"$($baseSettings.backupPath)\$currentTime-dump.log`""
+    "/DumpIB`"$($baseSettings.tempBackupFolder)\${backupDate}_backup.dt`"",
+    "/Out`"$($baseSettings.tempBackupFolder)\${backupDate}_dump.log`""
 ) -Wait -PassThru
 
-if (0 -ne $process.ExitCode) {
-    $currentTime = Get-Date
-    $logMessage = "$currentTime | Ошибка при выполнении 1сv8.exe. Код ошибки: $($process.ExitCode)"
-
-    Write-Output $logMessage
-
-    if ($logDirectoryExist) {
-        Add-Content -Path "$logDirectoryPath\logs.txt" -Value $logMessage
-    }
-
-    Exit
+$compressDate = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+$compressSettings = @{
+    Path = "$($baseSettings.tempBackupFolder)\${backupDate}_backup.dt"
+    DestinationPath = "$($baseSettings.tempBackupFolder)\${compressDate}_backup.zip"
+    CompressionLevel = "Optimal"
 }
-
-$dumpLog = Get-Content -Path "$($baseSettings.backupPath)\$currentTime-dump.log"
-if ($dumpLog -contains "Выгрузка информационной базы успешно завершена") {
-    $currentTime = Get-Date
-    $logMessage = "$currentTime | Выгрузка информационной базы успешно завершена."
-
-    Write-Output $logMessage
-
-    if ($logDirectoryExist) {
-        Add-Content -Path "$logDirectoryPath\logs.txt" -Value $logMessage
-    }
-
-    remove-Item -Path "$($baseSettings.backupPath)\$currentTime-dump.log"
-}
-
-Set-SFTPItem -SessionId $sftpSession.SessionId -Path "$($baseSettings.backupPath)/$currentTime-backup.dt" -Destination "/sftpuser"
-
-Remove-Item -Path "$($baseSettings.backupPath)/$currentTime-backup.dt"
+Compress-Archive @compressSettings
