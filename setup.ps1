@@ -8,7 +8,13 @@ $infoBase = "C:\Users\vladi\Documents\ZKGU"
 $tempBackupFolder = "C:\Users\vladi\Documents\backup"
 
 # Адрес SFTP
-$addressSFTP = "192.168.0.159"
+$addressSFTP = "192.168.0.136"
+
+# Порт SFTP
+$portSFTP = 22
+
+# Папка сохранения архивов на SFTP
+$folderSFTP = "/backup"
 
 # Путь к папке, где будет хранится файлы с зашифрованными учетными данными.
 $secureCredentialPath = "C:\Users\vladi\Documents\PowerShell\backup\password"
@@ -24,6 +30,10 @@ if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
     Exit
 }
 
+if (-not (Get-Module Posh-SSH -ListAvailable)) {
+    Install-Module Posh-SSH
+}
+
 $credential1c = Get-Credential -Message "Учетные данные пользователя 1С"
 $credential1c | Export-Clixml -Path "$secureCredentialPath\1c.xml"
 
@@ -36,4 +46,6 @@ New-ItemProperty -Path $registryBranch$registryBranchName -Name "1cv8exe"       
 New-ItemProperty -Path $registryBranch$registryBranchName -Name "TempBackupFolder"     -Value $tempBackupFolder     -PropertyType String
 New-ItemProperty -Path $registryBranch$registryBranchName -Name "SecureCredentialPath" -Value $secureCredentialPath -PropertyType String
 New-ItemProperty -Path $registryBranch$registryBranchName -Name "AddressSFTP"          -Value $addressSFTP          -PropertyType String
+New-ItemProperty -Path $registryBranch$registryBranchName -Name "PortSFTP"             -Value $portSFTP             -PropertyType String
+New-ItemProperty -Path $registryBranch$registryBranchName -Name "FolderSFTP"           -Value $folderSFTP           -PropertyType String
 New-ItemProperty -Path $registryBranch$registryBranchName -Name "InfoBase"             -Value $infoBase             -PropertyType String

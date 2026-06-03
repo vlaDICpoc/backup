@@ -3,14 +3,14 @@ $registryBranch = "HKLM:\Software\Backup_1C"
 
 $secureCredentialPath = Get-ItemPropertyValue -Path $registryBranch -Name SecureCredentialPath
 $credential1c = Import-Clixml "$secureCredentialPath\1c.xml"
-# ./$credentialSFTP = Import-Clixml "$secureCredentialPath\sftp.xml" 
+$credentialSFTP = Import-Clixml "$secureCredentialPath\sftp.xml" 
 
-Write-Host "Проверка наличия прав администратора..."
-if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(`
-    [Security.Principal.WindowsBuiltInRole] "Administrator")) {
-    Start-Process Powershell -ArgumentList $PSCommandPath -Verb RunAs
-    Exit
-}
+# Write-Host "Проверка наличия прав администратора..."
+# if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(`
+#     [Security.Principal.WindowsBuiltInRole] "Administrator")) {
+#     Start-Process Powershell -ArgumentList $PSCommandPath -Verb RunAs
+#     Exit
+# }
 
 # Путь к 1сv8.exe
 $1cv8exe = Get-ItemPropertyValue -Path $registryBranch -Name 1cv8exe
@@ -43,3 +43,12 @@ $compressSettings = @{
     CompressionLevel = "Optimal"
 }
 Compress-Archive @compressSettings
+
+Import-Module Posh-SSH
+
+$addressSFTP = Get-ItemPropertyValue -Path $registryBranch -Name AddressSFTP
+$portSFTP = Get-ItemPropertyValue -Path $registryBranch -Name PortSFTP
+$folderSFTP = Get-ItemPropertyValue -Path $registryBranch -Name FolderSFTP
+$sftpSession = New-SFTPSession -ComputerName $addressSFTP -Port $portSFTP -Credential $credentialSFTP
+
+Set-SFTPItem -SFTPSession $sftpSession -Path "$($baseSettings.tempBackupFolder)\${compressDate}_backup.zip" -Destination $folderSFTP
