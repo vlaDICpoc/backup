@@ -16,6 +16,9 @@ $portSFTP = 22
 # Папка сохранения архивов на SFTP
 $folderSFTP = "/backup"
 
+# Количество копий
+$numberOfCopy = 10
+
 # Путь к папке, где будет хранится файлы с зашифрованными учетными данными.
 $secureCredentialPath = "C:\Users\vladi\Documents\PowerShell\backup\password"
 
@@ -48,4 +51,5 @@ New-ItemProperty -Path $registryBranch$registryBranchName -Name "SecureCredentia
 New-ItemProperty -Path $registryBranch$registryBranchName -Name "AddressSFTP"          -Value $addressSFTP          -PropertyType String
 New-ItemProperty -Path $registryBranch$registryBranchName -Name "PortSFTP"             -Value $portSFTP             -PropertyType String
 New-ItemProperty -Path $registryBranch$registryBranchName -Name "FolderSFTP"           -Value $folderSFTP           -PropertyType String
+New-ItemProperty -Path $registryBranch$registryBranchName -Name "NumberOfCopy"         -Value $numberOfCopy         -PropertyType String
 New-ItemProperty -Path $registryBranch$registryBranchName -Name "InfoBase"             -Value $infoBase             -PropertyType String

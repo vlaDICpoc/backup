@@ -49,6 +49,30 @@ Import-Module Posh-SSH
 $addressSFTP = Get-ItemPropertyValue -Path $registryBranch -Name AddressSFTP
 $portSFTP = Get-ItemPropertyValue -Path $registryBranch -Name PortSFTP
 $folderSFTP = Get-ItemPropertyValue -Path $registryBranch -Name FolderSFTP
+$numberOfCopy = Get-ItemPropertyValue `
+    -Path $registryBranch `
+    -Name NumberOfCopy
 $sftpSession = New-SFTPSession -ComputerName $addressSFTP -Port $portSFTP -Credential $credentialSFTP
 
 Set-SFTPItem -SFTPSession $sftpSession -Path "$($baseSettings.tempBackupFolder)\${compressDate}_backup.zip" -Destination $folderSFTP
+$folderContent = Get-SFTPChildItem `
+    -SFTPSession $sftpSession `
+    -Path $folderSFTP |
+    Where-Object {
+        $_.FullName -like "*.zip"
+    } |
+    Sort-Object LastWriteTime
+
+if ($folderContent.Count -gt $numberOfCopy) {
+    Remove-SFTPItem `
+        -SFTPSession $sftpSession `
+        -Path $folderContent[0].FullName
+
+    $folderContent = $folderContent[1..($folderContent.Count - 1)]
+
+    Write-Output "Удаление: $($folderContent[0].FullName)"
+}
+
+Remove-Item -Path "$($baseSettings.tempBackupFolder)\${backupDate}_backup.dt"
+Remove-Item -Path "$($baseSettings.tempBackupFolder)\${backupDate}_dump.log"
+Remove-Item -Path "$($baseSettings.tempBackupFolder)\${compressDate}_backup.zip"
